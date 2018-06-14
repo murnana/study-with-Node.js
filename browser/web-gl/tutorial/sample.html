@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <title>WebGL Demo</title>
+    <meta charset="utf-8">
+  </head>
+
+  <body>
+    <canvas id="glcanvas" width="640" height="480"></canvas>
+  </body>
+
+  <script src="./gl-matrix.js"></script>
+  <script>
+
+    const param = {
+      gl: null,
+      shader: null,
+      buffer: null,
+      thenTime: 0.0,
+      rotation: 0.0
+    };
+
+    // loading shader
+    function LoadShader(gl) {
+      const fragment = gl.createShader(gl.FRAGMENT_SHADER),
+            vertex = gl.createShader(gl.VERTEX_SHADER);
+
+      gl.shaderSource(fragment, '\
+        varying lowp vec4 vColor;\
+        \
+        void main(void) {\
+          gl_FragColor = vColor;\
+        }\
+      ');
+      gl.shaderSource(vertex, '\
+        attribute vec3 aVertexPosition;\
+        attribute vec4 aVertexColor;\
+        \
+          uniform mat4 uMVMatrix;\
+          uniform mat4 uPMatrix;\
+        \
+          varying lowp vec4 vColor;\
+        \
+        void main(void) {\
+          gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);\
+          vColor = aVertexColor;\
+        }\
+      ');
+      
+      gl.compileShader(fragment);
+      gl.compileShader(vertex);
+
+      if (!gl.getShaderParameter(fragment, gl.COMPILE_STATUS)) {
+        alert('compile error:' + gl.getShaderInfoLog(fragment));
+      }
+      if (!gl.getShaderParameter(vertex, gl.COMPILE_STATUS)) {
+        alert('compile error:' + gl.getShaderInfoLog(vertex));
+      }
+
+      const shader = gl.createProgram();
+      gl.attachShader(shader, vertex);
+      gl.attachShader(shader, fragment);
+      gl.linkProgram(shader);
+      if(!gl.getProgramParameter(shader, gl.LINK_STATUS)) {
+        const message = 'cannot link shader';
+        alert(message);
+        console.error(message);
+        return;
+      }
+      gl.useProgram(shader);
+
+      const vertexPositionAttribute = gl.getAttribLocation(shader, 'aVertexPosition');
+      gl.enableVertexAttribArray(vertexPositionAttribute);
+
+      const vertexColorAttribute = gl.getAttribLocation(shader, 'aVertexColor');
+      gl.enableVertexAttribArray(vertexColorAttribute);
+
+      const projextionMatrix = gl.getUniformLocation(shader, 'uPMatrix');
+      const modelViewMatrix = gl.getUniformLocation(shader, 'uMVMatrix');
+
+      return {
+        program: shader,
+        vertexPositionAttribute: vertexPositionAttribute,
+        vertexColorAttribute: vertexColorAttribute,
+        projextionMatrix: projextionMatrix,
+        modelViewMatrix: modelViewMatrix,
+      };
+    }
+
+    // crate object
+    function InitBuffer(gl) {
+      const vertexBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+      const vertices = [
+        1.0, 1.0, 0.0,
+        -1.0, 1.0, 0.0,
+        1.0, -1.0, 0.0,
+        -1.0, -1.0, 0.0
+      ];
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+
+      const colorBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+      const colors = [
+        1.0, 1.0, 1.0, 1.0,
+        1.0, 0.0, 0.0, 1.0,
+        0.0, 1.0, 0.0, 1.0,
+        0.0, 0.0, 1.0, 1.0
+      ];
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+
+      return { 
+        vertex: vertexBuffer,
+        color: colorBuffer
+      };
+    }
+
+    function Update(time) {
+      time *= 0.001;
+      const deltaTime = time - param.thenTime;
+      param.thenTime = time;
+
+      param.rotation += 30 * deltaTime / 100.0;
+    }
+
+    // draw
+    function Draw(gl, buffer, shader) {
+      gl.clearColor(0.0, 0.0, 0.0, 1.0);
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthFunc(gl.LEQUAL);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      const projection = mat4.create();
+      mat4.perspective(
+        projection,
+        45.0 * Math.PI / 180.0,
+        gl.canvas.clientWidth / gl.canvas.clientHeight,
+        0.1,
+        100.0
+      );
+
+      const mv = mat4.create();
+      mat4.translate( mv, mv, [0.0, 0.0, -6.0] );
+      mat4.rotate( mv, mv, param.rotation, [0.0, 0.0, 1.0] );
+
+      gl.uniformMatrix4fv(shader.projextionMatrix, false, projection);
+      gl.uniformMatrix4fv(shader.modelViewMatrix, false, mv);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer.vertex);
+      gl.vertexAttribPointer(shader.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer.color);
+      gl.vertexAttribPointer(shader.vertexColorAttribute, 4, gl.FLOAT, false, 0, 0);
+
+
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    function loop(time) {
+      Update(time);
+      Draw(param.gl, param.buffer, param.shader);
+      requestAnimationFrame(loop);
+    }
+
+    (function (document) {
+      const canvas = document.querySelector('#glcanvas');
+      param.gl = canvas.getContext('webgl') || gl.getContext('experimental-webgl');
+      if (!param.gl) {
+        const message = 'Unable to initialize WebGL. Your browser or machine may not support it.';
+        alert(message);
+        console.error(message);
+        return;
+      }
+      param.gl.viewport(0, 0, canvas.width, canvas.height);
+
+      param.shader = LoadShader(param.gl);
+      param.buffer = InitBuffer(param.gl);
+
+      requestAnimationFrame(loop);
+    }(document));
+  </script>
+</html>

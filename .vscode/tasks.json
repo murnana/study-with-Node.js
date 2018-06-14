@@ -1,0 +1,36 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build docs",
+            "type": "shell",
+            "command": "gitbook",
+            "args": [
+                "build",
+                "./",
+                "./docs"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Serve Docs",
+            "type": "shell",
+            "command": "gitbook",
+            "args": [
+                "serve",
+                "./",
+                "./docs"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        }
+    ]
+}
